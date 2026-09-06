@@ -122,7 +122,10 @@ npm run dev
 
 ## 📸 Screenshots
 
-*(Add a few screenshots from your `prototype` or live app here, e.g. Home Page, Bidding Screen, Dashboard)*
+<img width="1602" height="982" alt="LoginScreen" src="https://github.com/user-attachments/assets/d1a83d5d-87a9-4b55-9e7a-f58fd50b2311" />
+<img width="1254" height="1254" alt="ListingCar" src="https://github.com/user-attachments/assets/88cdd6d4-85bf-4d58-9de0-692ef11d9c20" />
+<img width="1309" height="1201" alt="SellingScreen" src="https://github.com/user-attachments/assets/d8eaf505-aa85-453b-a3a7-1ec63f68bc06" />
+<img width="1821" height="864" alt="BiddingScreen" src="https://github.com/user-attachments/assets/af65216c-7553-4bde-9cb8-393c76c3220f" />
 
 ---
 
@@ -139,6 +142,8 @@ npm run dev
 - [Full Project Report (PDF)](./docs/FinalYear_Project_Report(12205023)TarunJyoti.pdf)
 - [Project Presentation (PPTX)](./docs/marutiXchange_presentation.pptx)
 - [Microservices Architecture Presentation (Google Drive)](PASTE-YOUR-GOOGLE-DRIVE-LINK-HERE)
+
+  ---
 ## 🙏 Acknowledgment
 
 This project was developed as part of a B.Tech industrial training program (Electronics & Computer Engineering, Punjabi University, Patiala) at **Maruti Suzuki India Limited**, under the mentorship of Mr. Ramachandran Kumar.
