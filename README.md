@@ -84,6 +84,7 @@ MarutiXchange/
 ├── MarutiXchange-Backend/     # Spring Boot microservices
 ├── MarutiXchange-Frontend/    # React application
 ├── prototype/                 # Early HTML/CSS UI prototype
+├── docs/                      # Project report & presentations
 └── README.md
 ```
 
