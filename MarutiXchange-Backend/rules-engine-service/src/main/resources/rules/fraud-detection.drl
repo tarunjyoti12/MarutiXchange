@@ -1,0 +1,52 @@
+package rules;
+
+import com.marutixchange.rules_engine_service.model.RuleContext;
+
+dialect "java"
+
+// ============================================================
+// FRAUD DETECTION RULES — MarutiXchange
+// Called by: user-service, payment-service for fraud checks
+// ============================================================
+
+/**
+ * RULE 1: Block blacklisted users from any transaction
+ */
+rule "FRAUD_BLACKLISTED_USER"
+salience 100
+agenda-group "fraud"
+when
+    $c : RuleContext(type == "fraud", blacklisted == true)
+then
+    $c.setApproved(false);
+    $c.setMessage("Access denied — your account has been suspended");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 2: Flag risky transactions for manual review
+ */
+rule "FRAUD_RISKY_TRANSACTION"
+salience 90
+agenda-group "fraud"
+when
+    $c : RuleContext(type == "fraud", blacklisted == false, risky == true)
+then
+    $c.setApproved(false);
+    $c.setMessage("Transaction flagged for manual review — please contact support");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 3: Safe user — allow transaction
+ */
+rule "FRAUD_USER_SAFE"
+salience 10
+agenda-group "fraud"
+when
+    $c : RuleContext(type == "fraud", blacklisted == false, risky == false)
+then
+    $c.setApproved(true);
+    $c.setMessage("User verified — transaction allowed");
+    $c.setRuleMatched(true);
+end

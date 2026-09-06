@@ -1,0 +1,262 @@
+@startuml TestCoverage_Diagram
+title Test Coverage - TDD Diagram
+
+package "Unit Tests (Service Layer)" {
+    component UserServiceImplTest {
+        note right
+          Tests for business logic
+          - register()
+          - login()
+          - getUserById()
+          - updateUser()
+          - deleteUser()
+          - sendOtp()
+          - verifyOtp()
+          - forgotPassword()
+          - resetPassword()
+          - getAllUsers()
+        end note
+    }
+}
+
+package "Integration Tests (Controller Layer)" {
+    component UserControllerTest {
+        note right
+          Tests for HTTP endpoints
+          - register endpoint
+          - login endpoint
+          - getUserById endpoint
+          - updateUser endpoint
+          - deleteUser endpoint
+          - sendOtp endpoint
+          - verifyOtp endpoint
+          - forgotPassword endpoint
+          - resetPassword endpoint
+          - getAllUsers endpoint
+          - uploadDocument endpoint
+          - getUserDocuments endpoint
+        end note
+    }
+}
+
+package "Test Scenarios" {
+    component SuccessScenarios {
+        note right
+          Happy path tests
+          - Valid inputs
+          - Expected outputs
+          - Database operations
+          - Email sending
+        end note
+    }
+    
+    component ErrorScenarios {
+        note right
+          Error handling tests
+          - Invalid inputs
+          - Exceptions thrown
+          - Error responses
+          - Edge cases
+        end note
+    }
+    
+    component SecurityScenarios {
+        note right
+          Security tests
+          - Password encoding
+          - JWT validation
+          - Account locking
+          - Token expiry
+        end note
+    }
+}
+
+package "Test Data" {
+    component Fixtures {
+        note right
+          Test data setup
+          - User fixtures
+          - Request fixtures
+          - Mock data
+        end note
+    }
+    
+    component Mocks {
+        note right
+          Mock objects
+          - UserRepository mock
+          - EmailService mock
+          - JwtUtil mock
+          - PasswordEncoder mock
+        end note
+    }
+}
+
+UserServiceImplTest --> SuccessScenarios
+UserServiceImplTest --> ErrorScenarios
+UserServiceImplTest --> SecurityScenarios
+
+UserControllerTest --> SuccessScenarios
+UserControllerTest --> ErrorScenarios
+UserControllerTest --> SecurityScenarios
+
+SuccessScenarios --> Fixtures
+ErrorScenarios --> Fixtures
+SecurityScenarios --> Fixtures
+
+SuccessScenarios --> Mocks
+ErrorScenarios --> Mocks
+SecurityScenarios --> Mocks
+
+@enduml
+
+@startuml TestCases_Matrix
+title Test Cases Coverage Matrix
+
+package "User Registration Tests" {
+    card "TC-REG-001: Register with valid data" as REG001
+    card "TC-REG-002: Register with duplicate email" as REG002
+    card "TC-REG-003: Register with invalid email format" as REG003
+    card "TC-REG-004: Register with weak password" as REG004
+    card "TC-REG-005: Register with missing required fields" as REG005
+    card "TC-REG-006: Verify welcome email sent" as REG006
+    card "TC-REG-007: Verify password encoded" as REG007
+    card "TC-REG-008: Verify user active by default" as REG008
+}
+
+package "User Login Tests" {
+    card "TC-LOGIN-001: Login with valid credentials" as LOGIN001
+    card "TC-LOGIN-002: Login with invalid email" as LOGIN002
+    card "TC-LOGIN-003: Login with invalid password" as LOGIN003
+    card "TC-LOGIN-004: Login with inactive user" as LOGIN004
+    card "TC-LOGIN-005: Login with locked account" as LOGIN005
+    card "TC-LOGIN-006: Increment failed attempts" as LOGIN006
+    card "TC-LOGIN-007: Lock account after 5 attempts" as LOGIN007
+    card "TC-LOGIN-008: Unlock account after 30 minutes" as LOGIN008
+    card "TC-LOGIN-009: Verify JWT token generated" as LOGIN009
+    card "TC-LOGIN-010: Reset failed attempts on success" as LOGIN010
+}
+
+package "OTP Tests" {
+    card "TC-OTP-001: Send OTP successfully" as OTP001
+    card "TC-OTP-002: Send OTP to non-existent user" as OTP002
+    card "TC-OTP-003: Verify OTP successfully" as OTP003
+    card "TC-OTP-004: Verify with invalid OTP" as OTP004
+    card "TC-OTP-005: Verify with expired OTP" as OTP005
+    card "TC-OTP-006: Verify with null OTP" as OTP006
+    card "TC-OTP-007: Clear OTP after verification" as OTP007
+    card "TC-OTP-008: Set isVerified flag" as OTP008
+}
+
+package "Password Reset Tests" {
+    card "TC-PWD-001: Request password reset" as PWD001
+    card "TC-PWD-002: Request reset for non-existent user" as PWD002
+    card "TC-PWD-003: Reset password with valid token" as PWD003
+    card "TC-PWD-004: Reset with invalid token" as PWD004
+    card "TC-PWD-005: Reset with expired token" as PWD005
+    card "TC-PWD-006: Verify password encoded" as PWD006
+    card "TC-PWD-007: Clear reset token after reset" as PWD007
+}
+
+package "Document Upload Tests" {
+    card "TC-DOC-001: Upload document successfully" as DOC001
+    card "TC-DOC-002: Upload for non-existent user" as DOC002
+    card "TC-DOC-003: Upload with invalid file type" as DOC003
+    card "TC-DOC-004: Upload with oversized file" as DOC004
+    card "TC-DOC-005: Verify file saved to storage" as DOC005
+    card "TC-DOC-006: Verify metadata saved to DB" as DOC006
+    card "TC-DOC-007: Get user documents" as DOC007
+}
+
+package "Error Handling Tests" {
+    card "TC-ERR-001: Handle EmailAlreadyExistsException" as ERR001
+    card "TC-ERR-002: Handle InvalidCredentialsException" as ERR002
+    card "TC-ERR-003: Handle AccountLockedException" as ERR003
+    card "TC-ERR-004: Handle UserNotFoundException" as ERR004
+    card "TC-ERR-005: Handle InvalidOtpException" as ERR005
+    card "TC-ERR-006: Handle InvalidTokenException" as ERR006
+    card "TC-ERR-007: Handle validation errors" as ERR007
+}
+
+@enduml
+
+@startuml TestExecution_Flow
+title Test Execution Flow - TDD Cycle
+
+start
+
+:Developer writes test case;
+note right
+  RED Phase
+  Test fails because
+  implementation doesn't exist
+end note
+
+:Run test;
+if (Test passes?) then (No)
+    :Continue to GREEN phase;
+else (Yes)
+    :Test already passing?;
+    stop
+endif
+
+:Write minimal implementation;
+note right
+  GREEN Phase
+  Write just enough code
+  to make test pass
+end note
+
+:Run test;
+if (Test passes?) then (Yes)
+    :Continue to REFACTOR phase;
+else (No)
+    :Fix implementation;
+    :Go back to run test;
+endif
+
+:Refactor code;
+note right
+  REFACTOR Phase
+  Improve code quality
+  while keeping tests passing
+end note
+
+:Run test;
+if (Test passes?) then (Yes)
+    :Continue;
+else (No)
+    :Fix refactored code;
+    :Go back to run test;
+endif
+
+:Run all tests;
+if (All tests pass?) then (Yes)
+    :Code review;
+else (No)
+    :Fix failing tests;
+    :Go back to run all tests;
+endif
+
+:Commit code;
+:Push to repository;
+
+:CI/CD pipeline runs;
+note right
+  - Build
+  - Run all tests
+  - Code coverage
+  - SonarQube analysis
+end note
+
+if (Pipeline passes?) then (Yes)
+    :Deploy to Dev environment;
+else (No)
+    :Fix issues;
+    :Push again;
+endif
+
+:Write next test case;
+:Go back to start;
+
+@enduml

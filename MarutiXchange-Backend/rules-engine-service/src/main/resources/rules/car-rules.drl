@@ -1,0 +1,126 @@
+package rules;
+
+import com.marutixchange.rules_engine_service.model.RuleContext;
+
+dialect "java"
+
+// ============================================================
+// CAR LISTING RULES — MarutiXchange
+// Called by: car-listing-service -> CarListingServiceImpl.createListing()
+// ============================================================
+
+/**
+ * RULE 1: Reject duplicate listing
+ * Same registration number cannot be listed twice
+ */
+rule "CAR_LISTING_DUPLICATE"
+salience 100
+when
+    $c : RuleContext(type == "CAR_LISTING", duplicate == true, ruleMatched == false)
+then
+    $c.setApproved(false);
+    $c.setMessage("This car is already listed — duplicate listing detected");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 2: Car must not be older than 20 years
+ * MarutiXchange only accepts cars from year 2005 onwards
+ */
+rule "CAR_LISTING_TOO_OLD"
+salience 90
+when
+    $c : RuleContext(type == "CAR_LISTING", year < 2005, ruleMatched == false)
+then
+    $c.setApproved(false);
+    $c.setMessage("Car must be manufactured after 2005 — older cars are not accepted");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 3: Minimum price for listing is Rs.50,000
+ * Prevents spam listings with unrealistic prices
+ */
+rule "CAR_LISTING_PRICE_TOO_LOW"
+salience 80
+when
+    $c : RuleContext(type == "CAR_LISTING", price < 50000, ruleMatched == false)
+then
+    $c.setApproved(false);
+    $c.setMessage("Minimum listing price is Rs.50,000");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 4: Maximum price cap is Rs.1 Crore
+ * MarutiXchange is for second-hand Maruti cars only
+ */
+rule "CAR_LISTING_PRICE_TOO_HIGH"
+salience 70
+when
+    $c : RuleContext(type == "CAR_LISTING", price > 10000000, ruleMatched == false)
+then
+    $c.setApproved(false);
+    $c.setMessage("Maximum listing price is Rs.1 Crore — please verify the price");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 5: Arena segment — cannot list Nexa models
+ * Nexa cars (Baleno, Grand Vitara, Fronx, Jimny, XL6, Invicto)
+ * cannot be listed under Arena segment
+ */
+rule "CAR_LISTING_WRONG_SEGMENT_NEXA_IN_ARENA"
+salience 65
+when
+    $c : RuleContext(
+        type == "CAR_LISTING",
+        segment != null,
+        segment == "ARENA",
+        model != null,
+        (model == "Baleno" || model == "Grand Vitara" || model == "Fronx" ||
+         model == "Jimny" || model == "XL6" || model == "Invicto"),
+        ruleMatched == false
+    )
+then
+    $c.setApproved(false);
+    $c.setMessage("'" + $c.getModel() + "' is a Nexa model. Please switch to Nexa section to list this car.");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 6: Nexa segment — cannot list Arena models
+ * Arena cars (Swift, WagonR, Brezza, Alto, Dzire, Ertiga, S-Presso, Celerio, Eeco)
+ * cannot be listed under Nexa segment
+ */
+rule "CAR_LISTING_WRONG_SEGMENT_ARENA_IN_NEXA"
+salience 65
+when
+    $c : RuleContext(
+        type == "CAR_LISTING",
+        segment != null,
+        segment == "NEXA",
+        model != null,
+        (model == "Swift" || model == "WagonR" || model == "Brezza" ||
+         model == "Alto K10" || model == "Dzire" || model == "Ertiga" ||
+         model == "S-Presso" || model == "Celerio" || model == "Eeco"),
+        ruleMatched == false
+    )
+then
+    $c.setApproved(false);
+    $c.setMessage("'" + $c.getModel() + "' is an Arena model. Please switch to Arena section to list this car.");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 7: Listing approved — all checks passed
+ */
+rule "CAR_LISTING_APPROVED"
+salience 10
+when
+    $c : RuleContext(type == "CAR_LISTING", ruleMatched == false)
+then
+    $c.setApproved(true);
+    $c.setMessage("Car listing approved successfully");
+    $c.setRuleMatched(true);
+end

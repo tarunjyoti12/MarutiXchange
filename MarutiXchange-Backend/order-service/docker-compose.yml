@@ -1,0 +1,177 @@
+version: '3.8'
+
+services:
+
+  # ================================
+  # MySQL Database
+  # ================================
+  mysql:
+    image: mysql:8.0
+    container_name: marutixchange-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_USER: marutiuser
+      MYSQL_PASSWORD: admin
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - marutixchange-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ================================
+  # Eureka Server
+  # ================================
+  eureka-server:
+    image: marutixchange/eureka-server:latest
+    container_name: eureka-server
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    networks:
+      - marutixchange-network
+    environment:
+      - JAVA_OPTS=-Xmx256m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ================================
+  # User Service
+  # ================================
+  user-service:
+    image: marutixchange/user-service:latest
+    container_name: user-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    networks:
+      - marutixchange-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/marutixchange_users?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:admin123@eureka-server:8761/eureka/
+
+  # ================================
+  # Car Listing Service
+  # ================================
+  car-listing-service:
+    image: marutixchange/car-listing-service:latest
+    container_name: car-listing-service
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    networks:
+      - marutixchange-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/marutixchange_carlisting?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:admin123@eureka-server:8761/eureka/
+
+  # ================================
+  # Bidding Service
+  # ================================
+  bidding-service:
+    image: marutixchange/bidding-service:latest
+    container_name: bidding-service
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    networks:
+      - marutixchange-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/marutixchange_bidding?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:admin123@eureka-server:8761/eureka/
+      - APP_JWT_SECRET=marutixchange-super-secret-key-must-be-256-bits-long-for-hs256
+
+  # ================================
+  # Payment Service
+  # ================================
+  payment-service:
+    image: marutixchange/payment-service:latest
+    container_name: payment-service
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    networks:
+      - marutixchange-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      bidding-service:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/marutixchange_payment?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:admin123@eureka-server:8761/eureka/
+      - APP_JWT_SECRET=marutixchange-super-secret-key-must-be-256-bits-long-for-hs256
+
+  # ================================
+  # Order Service (NEW ✅)
+  # ================================
+  order-service:
+    image: marutixchange/order-service:latest
+    container_name: order-service
+    restart: unless-stopped
+    ports:
+      - "8066:8066"
+    networks:
+      - marutixchange-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      bidding-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/marutixchange_order?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:admin123@eureka-server:8761/eureka/
+      - APP_JWT_SECRET=marutixchange-super-secret-key-must-be-256-bits-long-for-hs256
+
+# ================================
+# Volumes
+# ================================
+volumes:
+  mysql_data:
+
+# ================================
+# Network
+# ================================
+networks:
+  marutixchange-network:
+    driver: bridge

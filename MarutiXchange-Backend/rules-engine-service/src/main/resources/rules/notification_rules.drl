@@ -1,0 +1,59 @@
+package rules;
+
+import com.marutixchange.rules_engine_service.model.RuleContext;
+
+dialect "java"
+
+// ============================================================
+// NOTIFICATION RULES — MarutiXchange
+// Called by: notification-service before sending any notification
+// ============================================================
+
+/**
+ * RULE 1: Block notifications between 10 PM and 8 AM
+ * Do Not Disturb policy — respects user privacy
+ */
+rule "NOTIFICATION_BLOCK_NIGHT_HOURS"
+salience 100
+activation-group "notification-rules"
+when
+    $c : RuleContext(type == "NOTIFICATION")
+    eval($c.getHour() != null && ($c.getHour() >= 22 || $c.getHour() < 8))
+then
+    $c.setApproved(false);
+    $c.setMessage("Notification blocked — Do Not Disturb (10 PM to 8 AM)");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 2: Rate limit — max 5 notifications per user per day
+ * Prevents notification spam
+ */
+rule "NOTIFICATION_RATE_LIMIT_EXCEEDED"
+salience 90
+activation-group "notification-rules"
+when
+    $c : RuleContext(type == "NOTIFICATION")
+    eval($c.getNotificationCount() != null && $c.getNotificationCount() > 5)
+then
+    $c.setApproved(false);
+    $c.setMessage("Notification limit exceeded — maximum 5 notifications per day");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 3: Notification approved — daytime and within limits
+ */
+rule "NOTIFICATION_APPROVED"
+salience 10
+activation-group "notification-rules"
+when
+    $c : RuleContext(type == "NOTIFICATION")
+    eval($c.getHour() != null &&
+         $c.getHour() >= 8 && $c.getHour() < 22 &&
+         ($c.getNotificationCount() == null || $c.getNotificationCount() <= 5))
+then
+    $c.setApproved(true);
+    $c.setMessage("Notification approved");
+    $c.setRuleMatched(true);
+end

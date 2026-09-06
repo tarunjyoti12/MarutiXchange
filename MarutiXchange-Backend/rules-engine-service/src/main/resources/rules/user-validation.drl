@@ -1,0 +1,23 @@
+package rules;
+
+import com.marutixchange.rules_engine_service.model.RuleContext;
+
+rule "Invalid User"
+agenda-group "user"
+when
+    $c : RuleContext(type == "user", userId == null)
+then
+    System.out.println("🔥 Invalid User Rule Fired");
+    $c.setApproved(false);
+    $c.setMessage("User ID is required");
+end
+
+rule "Valid User"
+agenda-group "user"
+when
+    $c : RuleContext(type == "user", userId != null)
+then
+    System.out.println("🔥 Valid User Rule Fired");
+    $c.setApproved(true);
+    $c.setMessage("User is valid");
+end

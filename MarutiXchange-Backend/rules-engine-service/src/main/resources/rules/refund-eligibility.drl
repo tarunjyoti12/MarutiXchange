@@ -1,0 +1,38 @@
+package rules;
+
+import com.marutixchange.rules_engine_service.model.RuleContext;
+
+dialect "java"
+
+// ============================================================
+// REFUND ELIGIBILITY RULES — MarutiXchange
+// Called by: payment-service -> RefundServiceImpl.initiateRefund()
+// ============================================================
+
+/**
+ * RULE 1: Full refund allowed for token payments up to Rs.50,000
+ */
+rule "REFUND_ELIGIBLE"
+salience 100
+agenda-group "refund"
+when
+    $c : RuleContext(type == "refund", price <= 50000)
+then
+    $c.setApproved(true);
+    $c.setMessage("Refund approved — amount will be credited within 3-5 business days");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 2: High value refunds require manual review
+ */
+rule "REFUND_REQUIRES_REVIEW"
+salience 90
+agenda-group "refund"
+when
+    $c : RuleContext(type == "refund", price > 50000)
+then
+    $c.setApproved(false);
+    $c.setMessage("Refund amount exceeds Rs.50,000 — manual review required (3-7 business days)");
+    $c.setRuleMatched(true);
+end

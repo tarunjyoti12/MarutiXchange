@@ -1,0 +1,443 @@
+@startuml UserRegistration_Sequence
+title User Registration Sequence Diagram
+
+actor Client
+participant UserController
+participant UserService
+participant UserRepository
+participant PasswordEncoder
+participant EmailService
+database PostgreSQL
+
+Client -> UserController: POST /register\n(RegisterRequest)
+activate UserController
+
+UserController -> UserController: Validate input
+UserController -> UserService: register(request)
+activate UserService
+
+UserService -> UserRepository: existsByEmail(email)
+activate UserRepository
+UserRepository -> PostgreSQL: SELECT * FROM user WHERE email = ?
+PostgreSQL --> UserRepository: false
+UserRepository --> UserService: false
+deactivate UserRepository
+
+UserService -> PasswordEncoder: encode(password)
+activate PasswordEncoder
+PasswordEncoder --> UserService: encoded_password
+deactivate PasswordEncoder
+
+UserService -> UserRepository: save(user)
+activate UserRepository
+UserRepository -> PostgreSQL: INSERT INTO user (...)
+PostgreSQL --> UserRepository: user_id
+UserRepository --> UserService: saved_user
+deactivate UserRepository
+
+UserService -> EmailService: sendWelcomeEmail(email, name)
+activate EmailService
+EmailService --> EmailService: Send email via SMTP
+EmailService --> UserService: success
+deactivate EmailService
+
+UserService --> UserController: UserResponse
+deactivate UserService
+
+UserController --> Client: 201 CREATED\n(ApiResponse<UserResponse>)
+deactivate UserController
+
+@enduml
+
+@startuml UserLogin_Sequence
+title User Login Sequence Diagram
+
+actor Client
+participant UserController
+participant UserService
+participant UserRepository
+participant PasswordEncoder
+participant JwtUtil
+database PostgreSQL
+
+Client -> UserController: POST /login\n(LoginRequest)
+activate UserController
+
+UserController -> UserController: Validate input
+UserController -> UserService: login(request)
+activate UserService
+
+UserService -> UserRepository: findByEmail(email)
+activate UserRepository
+UserRepository -> PostgreSQL: SELECT * FROM user WHERE email = ?
+PostgreSQL --> UserRepository: user
+UserRepository --> UserService: user
+deactivate UserRepository
+
+UserService -> UserService: Check if account locked
+alt Account Locked
+    UserService -> UserService: Check lock duration
+    alt Lock not expired
+        UserService --> UserService: throw AccountLockedException
+    else Lock expired
+        UserService -> UserService: Reset failed attempts
+    end
+end
+
+UserService -> PasswordEncoder: matches(password, encoded_password)
+activate PasswordEncoder
+PasswordEncoder --> UserService: true/false
+deactivate PasswordEncoder
+
+alt Password Invalid
+    UserService -> UserService: handleFailedLogin()
+    UserService -> UserService: Increment failed attempts
+    alt Failed attempts >= 5
+        UserService -> UserService: Lock account
+        UserService -> UserService: Set lock time
+    end
+    UserService --> UserService: throw InvalidCredentialsException
+else Password Valid
+    UserService -> UserService: Check if user active
+    alt User not active
+        UserService --> UserService: throw InvalidCredentialsException
+    else User active
+        UserService -> UserService: Reset failed attempts
+        UserService -> JwtUtil: generateToken(email, role)
+        activate JwtUtil
+        JwtUtil --> UserService: JWT token
+        deactivate JwtUtil
+        
+        UserService -> UserRepository: save(user)
+        activate UserRepository
+        UserRepository -> PostgreSQL: UPDATE user SET ...
+        PostgreSQL --> UserRepository: ok
+        UserRepository --> UserService: updated_user
+        deactivate UserRepository
+        
+        UserService --> UserController: LoginResponse
+    end
+end
+
+deactivate UserService
+
+UserController --> Client: 200 OK\n(ApiResponse<LoginResponse>)
+deactivate UserController
+
+@enduml
+
+@startuml OTPVerification_Sequence
+title OTP Verification Sequence Diagram
+
+actor Client
+participant UserController
+participant UserService
+participant UserRepository
+participant EmailService
+database PostgreSQL
+
+Client -> UserController: POST /send-otp\n(OtpRequest)
+activate UserController
+
+UserController -> UserService: sendOtp(email)
+activate UserService
+
+UserService -> UserRepository: findByEmail(email)
+activate UserRepository
+UserRepository -> PostgreSQL: SELECT * FROM user WHERE email = ?
+PostgreSQL --> UserRepository: user
+UserRepository --> UserService: user
+deactivate UserRepository
+
+UserService -> UserService: generateOtp()
+UserService -> UserService: Set otp & expiry (10 min)
+
+UserService -> UserRepository: save(user)
+activate UserRepository
+UserRepository -> PostgreSQL: UPDATE user SET otp = ?, otp_expiry = ?
+PostgreSQL --> UserRepository: ok
+UserRepository --> UserService: saved_user
+deactivate UserRepository
+
+UserService -> EmailService: sendOtpEmail(email, otp)
+activate EmailService
+EmailService --> EmailService: Send OTP via SMTP
+EmailService --> UserService: success
+deactivate EmailService
+
+UserService --> UserController: success
+deactivate UserService
+
+UserController --> Client: 200 OK\n(ApiResponse<Void>)
+deactivate UserController
+
+note right of Client
+  Client receives OTP in email
+end note
+
+Client -> UserController: POST /verify-otp\n(OtpVerifyRequest)
+activate UserController
+
+UserController -> UserService: verifyOtp(email, otp)
+activate UserService
+
+UserService -> UserRepository: findByEmail(email)
+activate UserRepository
+UserRepository -> PostgreSQL: SELECT * FROM user WHERE email = ?
+PostgreSQL --> UserRepository: user
+UserRepository --> UserService: user
+deactivate UserRepository
+
+UserService -> UserService: Validate OTP
+alt OTP validation fails
+    UserService --> UserService: throw InvalidOtpException
+else OTP validation passes
+    UserService -> UserService: Set isVerified = true
+    UserService -> UserService: Clear otp & expiry
+    
+    UserService -> UserRepository: save(user)
+    activate UserRepository
+    UserRepository -> PostgreSQL: UPDATE user SET is_verified = true, otp = null
+    PostgreSQL --> UserRepository: ok
+    UserRepository --> UserService: saved_user
+    deactivate UserRepository
+    
+    UserService --> UserController: success
+end
+
+deactivate UserService
+
+UserController --> Client: 200 OK\n(ApiResponse<Void>)
+deactivate UserController
+
+@enduml
+
+@startuml PasswordReset_Sequence
+title Password Reset Sequence Diagram
+
+actor Client
+participant UserController
+participant UserService
+participant UserRepository
+participant PasswordEncoder
+participant EmailService
+database PostgreSQL
+
+Client -> UserController: POST /forgot-password\n(PasswordResetRequest)
+activate UserController
+
+UserController -> UserService: forgotPassword(email)
+activate UserService
+
+UserService -> UserRepository: findByEmail(email)
+activate UserRepository
+UserRepository -> PostgreSQL: SELECT * FROM user WHERE email = ?
+PostgreSQL --> UserRepository: user
+UserRepository --> UserService: user
+deactivate UserRepository
+
+UserService -> UserService: Generate UUID reset token
+UserService -> UserService: Set token & expiry (30 min)
+
+UserService -> UserRepository: save(user)
+activate UserRepository
+UserRepository -> PostgreSQL: UPDATE user SET reset_token = ?, reset_token_expiry = ?
+PostgreSQL --> UserRepository: ok
+UserRepository --> UserService: saved_user
+deactivate UserRepository
+
+UserService -> EmailService: sendPasswordResetEmail(email, token)
+activate EmailService
+EmailService --> EmailService: Send reset link via SMTP
+EmailService --> UserService: success
+deactivate EmailService
+
+UserService --> UserController: success
+deactivate UserService
+
+UserController --> Client: 200 OK\n(ApiResponse<Void>)
+deactivate UserController
+
+note right of Client
+  Client clicks reset link in email
+end note
+
+Client -> UserController: POST /reset-password\n(PasswordResetConfirmRequest)
+activate UserController
+
+UserController -> UserService: resetPassword(token, newPassword)
+activate UserService
+
+UserService -> UserRepository: findByResetToken(token)
+activate UserRepository
+UserRepository -> PostgreSQL: SELECT * FROM user WHERE reset_token = ?
+PostgreSQL --> UserRepository: user
+UserRepository --> UserService: user
+deactivate UserRepository
+
+UserService -> UserService: Validate token expiry
+alt Token validation fails
+    UserService --> UserService: throw InvalidTokenException
+else Token validation passes
+    UserService -> PasswordEncoder: encode(newPassword)
+    activate PasswordEncoder
+    PasswordEncoder --> UserService: encoded_password
+    deactivate PasswordEncoder
+    
+    UserService -> UserService: Set new password
+    UserService -> UserService: Clear reset token & expiry
+    
+    UserService -> UserRepository: save(user)
+    activate UserRepository
+    UserRepository -> PostgreSQL: UPDATE user SET password = ?, reset_token = null
+    PostgreSQL --> UserRepository: ok
+    UserRepository --> UserService: saved_user
+    deactivate UserRepository
+    
+    UserService --> UserController: success
+end
+
+deactivate UserService
+
+UserController --> Client: 200 OK\n(ApiResponse<Void>)
+deactivate UserController
+
+@enduml
+
+@startuml DocumentUpload_Sequence
+title Document Upload Sequence Diagram
+
+actor Client
+participant UserController
+participant DocumentService
+participant UserRepository
+participant DocumentRepository
+participant FileStorage
+database PostgreSQL
+
+Client -> UserController: POST /users/{id}/upload-document\n(file, documentType)
+activate UserController
+
+UserController -> UserController: Validate input
+UserController -> DocumentService: uploadDocument(userId, file, documentType)
+activate DocumentService
+
+DocumentService -> UserRepository: findById(userId)
+activate UserRepository
+UserRepository -> PostgreSQL: SELECT * FROM user WHERE id = ?
+PostgreSQL --> UserRepository: user
+UserRepository --> UserService: user
+deactivate UserRepository
+
+DocumentService -> DocumentService: Validate file
+DocumentService -> DocumentService: Generate unique filename (UUID)
+
+DocumentService -> FileStorage: Upload file
+activate FileStorage
+FileStorage --> DocumentService: fileUrl
+deactivate FileStorage
+
+DocumentService -> DocumentService: Create UserDocument entity
+DocumentService -> DocumentRepository: save(document)
+activate DocumentRepository
+DocumentRepository -> PostgreSQL: INSERT INTO user_document (...)
+PostgreSQL --> DocumentRepository: document_id
+DocumentRepository --> DocumentService: saved_document
+deactivate DocumentRepository
+
+DocumentService --> UserController: DocumentResponse
+deactivate DocumentService
+
+UserController --> Client: 200 OK\n(ApiResponse<DocumentResponse>)
+deactivate UserController
+
+@enduml
+
+@startuml AccountLock_Sequence
+title Account Lock on Failed Login Attempts
+
+actor Client
+participant UserController
+participant UserService
+participant UserRepository
+database PostgreSQL
+
+loop 5 times - Failed Login Attempts
+    Client -> UserController: POST /login\n(wrong password)
+    activate UserController
+    
+    UserController -> UserService: login(request)
+    activate UserService
+    
+    UserService -> UserRepository: findByEmail(email)
+    activate UserRepository
+    UserRepository -> PostgreSQL: SELECT * FROM user WHERE email = ?
+    PostgreSQL --> UserRepository: user
+    UserRepository --> UserService: user
+    deactivate UserRepository
+    
+    UserService -> UserService: Verify password - FAILS
+    UserService -> UserService: handleFailedLogin()
+    UserService -> UserService: Increment failedAttempts
+    
+    alt failedAttempts < 5
+        UserService -> UserRepository: save(user)
+        activate UserRepository
+        UserRepository -> PostgreSQL: UPDATE user SET failed_attempts = ?
+        PostgreSQL --> UserRepository: ok
+        UserRepository --> UserService: updated_user
+        deactivate UserRepository
+        
+        UserService --> UserService: throw InvalidCredentialsException
+    else failedAttempts >= 5
+        UserService -> UserService: Set accountLocked = true
+        UserService -> UserService: Set lockTime = now
+        
+        UserService -> UserRepository: save(user)
+        activate UserRepository
+        UserRepository -> PostgreSQL: UPDATE user SET account_locked = true, lock_time = ?
+        PostgreSQL --> UserRepository: ok
+        UserRepository --> UserService: updated_user
+        deactivate UserRepository
+        
+        UserService --> UserService: throw InvalidCredentialsException
+    end
+    
+    deactivate UserService
+    
+    UserController --> Client: 401 UNAUTHORIZED
+    deactivate UserController
+end
+
+note right of Client
+  After 5 failed attempts, account is locked for 30 minutes
+end note
+
+Client -> UserController: POST /login\n(6th attempt)
+activate UserController
+
+UserController -> UserService: login(request)
+activate UserService
+
+UserService -> UserRepository: findByEmail(email)
+activate UserRepository
+UserRepository -> PostgreSQL: SELECT * FROM user WHERE email = ?
+PostgreSQL --> UserRepository: user (accountLocked=true)
+UserRepository --> UserService: user
+deactivate UserRepository
+
+UserService -> UserService: Check if account locked
+UserService -> UserService: Check lock duration
+alt lockTime + 30min > now
+    UserService --> UserService: throw AccountLockedException
+else lockTime + 30min <= now
+    UserService -> UserService: Reset failed attempts
+    UserService -> UserService: Unlock account
+end
+
+deactivate UserService
+
+UserController --> Client: 403 FORBIDDEN\n(Account Locked)
+deactivate UserController
+
+@enduml

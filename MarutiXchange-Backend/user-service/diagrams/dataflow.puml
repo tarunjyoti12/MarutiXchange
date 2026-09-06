@@ -1,0 +1,502 @@
+@startuml UserRegistration_DataFlow
+title User Registration - Data Flow Diagram
+
+start
+:Client submits RegisterRequest;
+note right
+  - name
+  - email
+  - password
+  - phoneNumber
+  - role
+end note
+
+:UserController receives request;
+:Validate input using @Valid;
+
+if (Input valid?) then (No)
+    :Return 400 BAD REQUEST;
+    stop
+else (Yes)
+    :Pass to UserService.register();
+endif
+
+:Check if email exists in DB;
+if (Email exists?) then (Yes)
+    :Throw EmailAlreadyExistsException;
+    :Return 409 CONFLICT;
+    stop
+else (No)
+    :Continue;
+endif
+
+:Encode password using PasswordEncoder;
+note right
+  Using BCrypt algorithm
+end note
+
+:Create User entity with:;
+note right
+  - name
+  - email
+  - encoded_password
+  - phoneNumber
+  - role
+  - active = true
+  - isVerified = false
+  - failedAttempts = 0
+  - accountLocked = false
+end note
+
+:Save user to PostgreSQL database;
+:Get generated user ID;
+
+:Send welcome email via EmailService;
+note right
+  Async email sending
+  to SMTP server
+end note
+
+:Create UserResponse DTO;
+note right
+  - id
+  - name
+  - email
+  - phoneNumber
+  - role
+  - active
+  - isVerified
+  - createdAt
+end note
+
+:Wrap in ApiResponse;
+:Return 201 CREATED;
+:Send response to Client;
+
+stop
+
+@enduml
+
+@startuml UserLogin_DataFlow
+title User Login - Data Flow Diagram
+
+start
+:Client submits LoginRequest;
+note right
+  - email
+  - password
+end note
+
+:UserController receives request;
+:Validate input using @Valid;
+
+if (Input valid?) then (No)
+    :Return 400 BAD REQUEST;
+    stop
+else (Yes)
+    :Pass to UserService.login();
+endif
+
+:Query database for user by email;
+if (User found?) then (No)
+    :Throw InvalidCredentialsException;
+    :Return 401 UNAUTHORIZED;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+:Check if account is locked;
+if (Account locked?) then (Yes)
+    :Check lock duration;
+    if (Lock expired?) then (Yes)
+        :Reset failed attempts;
+        :Unlock account;
+    else (No)
+        :Throw AccountLockedException;
+        :Return 403 FORBIDDEN;
+        stop
+    endif
+else (No)
+    :Continue;
+endif
+
+:Verify password using PasswordEncoder;
+if (Password matches?) then (No)
+    :Increment failed attempts;
+    if (Failed attempts >= 5?) then (Yes)
+        :Lock account;
+        :Set lock time to now;
+        :Log warning;
+    endif
+    :Save user to database;
+    :Throw InvalidCredentialsException;
+    :Return 401 UNAUTHORIZED;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+:Check if user is active;
+if (User active?) then (No)
+    :Throw InvalidCredentialsException;
+    :Return 401 UNAUTHORIZED;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+:Reset failed attempts to 0;
+:Clear lock time;
+:Save user to database;
+
+:Generate JWT token using JwtUtil;
+note right
+  Token contains:
+  - email
+  - role
+  - expiry (24 hours)
+  - signature
+end note
+
+:Create LoginResponse;
+note right
+  - token
+  - tokenType: "Bearer"
+  - user (UserResponse)
+end note
+
+:Wrap in ApiResponse;
+:Return 200 OK;
+:Send response to Client;
+
+stop
+
+@enduml
+
+@startuml OTPVerification_DataFlow
+title OTP Verification - Data Flow Diagram
+
+start
+:Client submits OtpRequest;
+note right
+  - email
+end note
+
+:UserController receives request;
+:Validate input;
+
+if (Input valid?) then (No)
+    :Return 400 BAD REQUEST;
+    stop
+else (Yes)
+    :Pass to UserService.sendOtp();
+endif
+
+:Query database for user by email;
+if (User found?) then (No)
+    :Throw UserNotFoundException;
+    :Return 404 NOT FOUND;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+:Generate random 6-digit OTP;
+note right
+  Range: 100000 - 999999
+end note
+
+:Set user.otp = generated_otp;
+:Set user.otpExpiry = now + 10 minutes;
+:Save user to database;
+
+:Send OTP email via EmailService;
+note right
+  Async email sending
+  to SMTP server
+end note
+
+:Return 200 OK;
+:Send response to Client;
+
+note right of Client
+  Client receives OTP in email
+  and submits verification request
+end note
+
+:Client submits OtpVerifyRequest;
+note right
+  - email
+  - otp
+end note
+
+:UserController receives request;
+:Validate input;
+
+if (Input valid?) then (No)
+    :Return 400 BAD REQUEST;
+    stop
+else (Yes)
+    :Pass to UserService.verifyOtp();
+endif
+
+:Query database for user by email;
+if (User found?) then (No)
+    :Throw UserNotFoundException;
+    :Return 404 NOT FOUND;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+:Validate OTP;
+if (OTP is null?) then (Yes)
+    :Throw InvalidOtpException;
+    :Return 400 BAD REQUEST;
+    stop
+else (No)
+    :Continue;
+endif
+
+if (OTP expiry is null?) then (Yes)
+    :Throw InvalidOtpException;
+    :Return 400 BAD REQUEST;
+    stop
+else (No)
+    :Continue;
+endif
+
+if (Now > OTP expiry?) then (Yes)
+    :Throw InvalidOtpException;
+    :Return 400 BAD REQUEST;
+    stop
+else (No)
+    :Continue;
+endif
+
+if (OTP matches provided OTP?) then (No)
+    :Throw InvalidOtpException;
+    :Return 400 BAD REQUEST;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+:Set user.isVerified = true;
+:Clear user.otp = null;
+:Clear user.otpExpiry = null;
+:Save user to database;
+
+:Return 200 OK;
+:Send response to Client;
+
+stop
+
+@enduml
+
+@startuml PasswordReset_DataFlow
+title Password Reset - Data Flow Diagram
+
+start
+:Client submits PasswordResetRequest;
+note right
+  - email
+end note
+
+:UserController receives request;
+:Validate input;
+
+if (Input valid?) then (No)
+    :Return 400 BAD REQUEST;
+    stop
+else (Yes)
+    :Pass to UserService.forgotPassword();
+endif
+
+:Query database for user by email;
+if (User found?) then (No)
+    :Throw UserNotFoundException;
+    :Return 404 NOT FOUND;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+:Generate UUID reset token;
+:Set user.resetToken = generated_token;
+:Set user.resetTokenExpiry = now + 30 minutes;
+:Save user to database;
+
+:Send password reset email via EmailService;
+note right
+  Email contains reset link with token
+  Async email sending to SMTP server
+end note
+
+:Return 200 OK;
+:Send response to Client;
+
+note right of Client
+  Client clicks reset link in email
+  and submits new password
+end note
+
+:Client submits PasswordResetConfirmRequest;
+note right
+  - token
+  - newPassword
+end note
+
+:UserController receives request;
+:Validate input;
+
+if (Input valid?) then (No)
+    :Return 400 BAD REQUEST;
+    stop
+else (Yes)
+    :Pass to UserService.resetPassword();
+endif
+
+:Query database for user by reset token;
+if (User found?) then (No)
+    :Throw InvalidTokenException;
+    :Return 400 BAD REQUEST;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+if (Reset token expiry is null?) then (Yes)
+    :Throw InvalidTokenException;
+    :Return 400 BAD REQUEST;
+    stop
+else (No)
+    :Continue;
+endif
+
+if (Now > reset token expiry?) then (Yes)
+    :Throw InvalidTokenException;
+    :Return 400 BAD REQUEST;
+    stop
+else (No)
+    :Continue;
+endif
+
+:Encode new password using PasswordEncoder;
+note right
+  Using BCrypt algorithm
+end note
+
+:Set user.password = encoded_password;
+:Clear user.resetToken = null;
+:Clear user.resetTokenExpiry = null;
+:Save user to database;
+
+:Return 200 OK;
+:Send response to Client;
+
+stop
+
+@enduml
+
+@startuml DocumentUpload_DataFlow
+title Document Upload - Data Flow Diagram
+
+start
+:Client submits file upload request;
+note right
+  - userId (path parameter)
+  - file (multipart)
+  - documentType (query parameter)
+end note
+
+:UserController receives request;
+:Validate userId;
+:Validate file;
+:Validate documentType;
+
+if (All valid?) then (No)
+    :Return 400 BAD REQUEST;
+    stop
+else (Yes)
+    :Pass to DocumentService.uploadDocument();
+endif
+
+:Query database for user by ID;
+if (User found?) then (No)
+    :Throw UserNotFoundException;
+    :Return 404 NOT FOUND;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+:Validate file;
+note right
+  - Check file size
+  - Check file type
+  - Check MIME type
+end note
+
+if (File valid?) then (No)
+    :Return 400 BAD REQUEST;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+:Generate unique filename;
+note right
+  Format: UUID_originalFileName
+  Example: 2184c4ef-df93-485b-901c-6d5819d64685_document.pdf
+end note
+
+:Upload file to storage;
+note right
+  S3 or Local file system
+end note
+
+if (Upload successful?) then (No)
+    :Return 500 INTERNAL SERVER ERROR;
+    stop
+else (Yes)
+    :Get file URL;
+endif
+
+:Create UserDocument entity;
+note right
+  - userId
+  - documentType
+  - fileName
+  - fileUrl
+  - fileSize
+  - uploadedAt = now
+end note
+
+:Save document metadata to database;
+if (Save successful?) then (No)
+    :Return 500 INTERNAL SERVER ERROR;
+    stop
+else (Yes)
+    :Continue;
+endif
+
+:Create DocumentResponse DTO;
+note right
+  - documentId
+  - userId
+  - documentType
+  - fileName
+  - fileUrl
+  - fileSize
+  - uploadedAt
+end note
+
+:Wrap in ApiResponse;
+:Return 200 OK;
+:Send response to Client;
+
+stop
+
+@enduml

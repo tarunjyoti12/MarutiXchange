@@ -1,0 +1,34 @@
+# ============================================================
+# MarutiXchange — .dockerignore
+# Put one of these at the ROOT of EACH service you build into
+# an image (or at the repo root if you build from there).
+# It stops junk from being copied into your Docker images.
+# ============================================================
+
+# Build output (the image builds its own, fresh)
+target/
+node_modules/
+dist/
+build/
+
+# Secrets — must never go inside an image
+.env
+*.env
+!*.env.example
+
+# Crash logs & IDE files
+hs_err_pid*.log
+replay_pid*.log
+*.hprof
+.idea/
+*.iml
+.vscode/
+
+# Git & docs not needed at runtime
+.git/
+.gitignore
+*.md
+
+# OS junk
+.DS_Store
+Thumbs.db

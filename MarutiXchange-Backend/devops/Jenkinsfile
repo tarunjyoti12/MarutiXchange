@@ -1,0 +1,168 @@
+// =============================================
+// MarutiXchange — Jenkins CI/CD Pipeline
+// Includes: Build → Test → SonarQube → Qualys → Deploy
+// =============================================
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven 3.9'
+        jdk   'JDK 17'
+    }
+
+    environment {
+        SONAR_HOST_URL   = credentials('sonar-host-url')
+        SONAR_TOKEN      = credentials('sonar-token')
+        DOCKER_REGISTRY  = credentials('docker-registry')
+        JWT_SECRET       = credentials('jwt-secret')
+        DB_PASSWORD      = credentials('db-password')
+    }
+
+    parameters {
+        choice(name: 'SERVICE', choices: [
+            'all',
+            'discovery-service',
+            'api-gateway-service',
+            'user-service',
+            'car-listing-service',
+            'bidding-service',
+            'notification-service',
+            'payment-service',
+            'order-service',
+            'test-drive-service',
+            'rc-transfer-service',
+            'watchlist-service',
+            'rules-engine-service'
+        ], description: 'Select service to build')
+        booleanParam(name: 'RUN_SONAR',   defaultValue: true,  description: 'Run SonarQube analysis')
+        booleanParam(name: 'RUN_QUALYS',  defaultValue: false, description: 'Run Qualys VAPT scan (pre-prod only)')
+        booleanParam(name: 'DEPLOY',      defaultValue: false, description: 'Deploy after successful build')
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'echo "Branch: ${GIT_BRANCH}"'
+            }
+        }
+
+        stage('Build & Unit Test') {
+            steps {
+                script {
+                    def services = params.SERVICE == 'all'
+                        ? ['discovery-service','api-gateway-service','user-service',
+                           'car-listing-service','bidding-service','notification-service',
+                           'payment-service','order-service','test-drive-service',
+                           'rc-transfer-service','watchlist-service','rules-engine-service']
+                        : [params.SERVICE]
+
+                    services.each { svc ->
+                        dir(svc) {
+                            sh "mvn clean verify -Dmaven.test.failure.ignore=false"
+                        }
+                    }
+                }
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                    jacoco(execPattern: '**/target/jacoco.exec',
+                           classPattern: '**/target/classes',
+                           sourcePattern: '**/src/main/java',
+                           exclusionPattern: '**/dto/**,**/entity/**')
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            when { expression { params.RUN_SONAR } }
+            steps {
+                script {
+                    def services = params.SERVICE == 'all'
+                        ? ['user-service','car-listing-service','bidding-service',
+                           'notification-service','payment-service','order-service',
+                           'test-drive-service','rc-transfer-service','watchlist-service']
+                        : [params.SERVICE]
+
+                    services.each { svc ->
+                        dir(svc) {
+                            sh """
+                                mvn sonar:sonar \
+                                    -Dsonar.host.url=${SONAR_HOST_URL} \
+                                    -Dsonar.login=${SONAR_TOKEN} \
+                                    -Dsonar.projectKey=marutixchange-${svc} \
+                                    -Dsonar.projectName='MarutiXchange ${svc}' \
+                                    -Dsonar.qualitygate.wait=true
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Docker Build & Push') {
+            when { expression { params.DEPLOY } }
+            steps {
+                script {
+                    def services = params.SERVICE == 'all'
+                        ? ['discovery-service','api-gateway-service','user-service',
+                           'car-listing-service','bidding-service','notification-service',
+                           'payment-service','order-service','test-drive-service',
+                           'rc-transfer-service','watchlist-service','rules-engine-service']
+                        : [params.SERVICE]
+
+                    services.each { svc ->
+                        dir(svc) {
+                            def tag = "${DOCKER_REGISTRY}/marutixchange/${svc}:${BUILD_NUMBER}"
+                            sh "docker build -t ${tag} ."
+                            sh "docker push ${tag}"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Qualys VAPT Scan') {
+            when { expression { params.RUN_QUALYS } }
+            steps {
+                sh '''
+                    echo "Running Qualys VAPT scan against staging environment..."
+                    # Qualys CLI integration — configure QUALYS_API_URL and credentials
+                    # qualys-scan --target http://staging.marutixchange.internal --profile OWASP_TOP_10
+                    echo "Qualys scan placeholder — integrate Qualys CLI here"
+                '''
+            }
+        }
+
+        stage('Deploy to Staging') {
+            when {
+                allOf {
+                    expression { params.DEPLOY }
+                    branch 'develop'
+                }
+            }
+            steps {
+                sh '''
+                    cd devops
+                    docker-compose pull
+                    docker-compose up -d --remove-orphans
+                    docker-compose ps
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline SUCCESS for ${params.SERVICE}"
+        }
+        failure {
+            echo "❌ Pipeline FAILED — check SonarQube Quality Gate or test failures"
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

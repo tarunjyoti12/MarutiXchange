@@ -1,0 +1,20 @@
+package com.marutixchange.notification_service.enums;
+
+public enum NotificationType {
+    BID_PLACED,
+    BID_ACCEPTED,
+    BID_REJECTED,
+    BID_OUTBID,
+    BID_EXPIRED,
+    ORDER_CREATED,
+    ORDER_CONFIRMED,
+    ORDER_CANCELLED,
+    PAYMENT_SUCCESS,
+    PAYMENT_FAILED,
+    PAYMENT_REFUND_INITIATED,
+    PAYMENT_REFUND_COMPLETED,
+    CAR_LISTING_APPROVED,
+    CAR_LISTING_REJECTED,
+    USER_REGISTERED,
+    PROMOTIONAL
+}

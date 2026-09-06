@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  discovery-service:
+    build: .
+    container_name: marutixchange-discovery
+    ports:
+      - "8761:8761"
+    environment:
+      EUREKA_USERNAME: ${EUREKA_USERNAME}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD}
+      EUREKA_HOST: localhost
+    networks:
+      - marutixchange-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1",
+             "--spider",
+             "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  marutixchange-network:
+    driver: bridge

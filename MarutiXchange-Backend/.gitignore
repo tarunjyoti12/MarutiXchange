@@ -1,0 +1,49 @@
+# ============================================================
+# MarutiXchange — root .gitignore
+# Put this file at the ROOT of your repository.
+# ============================================================
+
+# ---- Secrets (NEVER commit these) ----
+.env
+*.env
+!*.env.example          # keep the example templates
+**/src/main/resources/application-local.properties
+**/src/main/resources/application-secret.properties
+
+# ---- Java / Maven build output ----
+target/
+*.class
+*.jar
+*.war
+!**/.mvn/wrapper/maven-wrapper.jar   # keep the wrapper jar
+
+# ---- JVM crash & replay logs (these were committed by mistake) ----
+hs_err_pid*.log
+replay_pid*.log
+*.hprof
+
+# ---- IDE files ----
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# ---- Node / React frontend ----
+node_modules/
+dist/
+build/
+.npm/
+*.local
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
+
+# ---- Logs ----
+*.log
+logs/
+
+# ---- Docker ----
+*.pid

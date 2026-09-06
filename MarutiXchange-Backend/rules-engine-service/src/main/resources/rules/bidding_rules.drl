@@ -1,0 +1,94 @@
+package rules;
+
+import com.marutixchange.rules_engine_service.model.RuleContext;
+
+dialect "java"
+
+// ============================================================
+// BIDDING RULES — MarutiXchange
+// Called by: bidding-service -> BidServiceImpl.placeBid()
+// ============================================================
+
+/**
+ * RULE 1: Bid amount must be a positive number
+ * Priority: HIGHEST (salience 100)
+ */
+rule "BID_INVALID_AMOUNT"
+salience 100
+when
+    $c : RuleContext(type == "BID", ruleMatched == false)
+    eval($c.getBidAmount() == null || $c.getBidAmount() <= 0)
+then
+    $c.setApproved(false);
+    $c.setMessage("Invalid bid amount — must be greater than zero");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 2: Auction must be in valid state (currentHighestBid must exist)
+ * Priority: HIGH (salience 90)
+ */
+rule "BID_AUCTION_NOT_INITIALIZED"
+salience 90
+when
+    $c : RuleContext(type == "BID", ruleMatched == false)
+    eval($c.getCurrentHighestBid() == null)
+then
+    $c.setApproved(false);
+    $c.setMessage("Auction is not active or has ended");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 3: Bid must be strictly higher than current highest bid
+ * Priority: HIGH (salience 80)
+ */
+rule "BID_TOO_LOW"
+salience 80
+when
+    $c : RuleContext(type == "BID", ruleMatched == false)
+    eval($c.getBidAmount() != null &&
+         $c.getCurrentHighestBid() != null &&
+         $c.getBidAmount() <= $c.getCurrentHighestBid())
+then
+    $c.setApproved(false);
+    $c.setMessage("Bid must be higher than current highest bid of Rs." + $c.getCurrentHighestBid().longValue());
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 4: Minimum increment of Rs.1,000 required
+ * Prevents penny bidding and protects seller interests
+ * Priority: MEDIUM (salience 70)
+ */
+rule "BID_INCREMENT_TOO_SMALL"
+salience 70
+when
+    $c : RuleContext(type == "BID", ruleMatched == false)
+    eval($c.getBidAmount() != null &&
+         $c.getCurrentHighestBid() != null &&
+         $c.getBidAmount() > $c.getCurrentHighestBid() &&
+         ($c.getBidAmount() - $c.getCurrentHighestBid()) < 1000)
+then
+    $c.setApproved(false);
+    $c.setMessage("Minimum bid increment is Rs.1,000");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 5: Valid bid — all checks passed
+ * Priority: LOWEST (salience 10)
+ */
+rule "BID_VALID"
+salience 10
+when
+    $c : RuleContext(type == "BID", ruleMatched == false)
+    eval($c.getBidAmount() != null &&
+         $c.getCurrentHighestBid() != null &&
+         $c.getBidAmount() > $c.getCurrentHighestBid() &&
+         ($c.getBidAmount() - $c.getCurrentHighestBid()) >= 1000)
+then
+    $c.setApproved(true);
+    $c.setMessage("Bid accepted successfully");
+    $c.setRuleMatched(true);
+end

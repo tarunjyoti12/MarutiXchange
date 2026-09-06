@@ -1,0 +1,35 @@
+### === Java / Spring Boot (Backend) === ###
+MarutiXchange-Backend/target/
+MarutiXchange-Backend/*.jar
+MarutiXchange-Backend/*.war
+MarutiXchange-Backend/*.class
+MarutiXchange-Backend/.mvn/
+MarutiXchange-Backend/mvnw
+MarutiXchange-Backend/mvnw.cmd
+MarutiXchange-Backend/.gradle/
+MarutiXchange-Backend/build/
+MarutiXchange-Backend/application-*.properties
+MarutiXchange-Backend/application-*.yml
+MarutiXchange-Backend/*.env
+
+### === React (Frontend) === ###
+MarutiXchange-Frontend/node_modules/
+MarutiXchange-Frontend/build/
+MarutiXchange-Frontend/dist/
+MarutiXchange-Frontend/.env
+MarutiXchange-Frontend/.env.local
+MarutiXchange-Frontend/.env.development.local
+MarutiXchange-Frontend/.env.test.local
+MarutiXchange-Frontend/.env.production.local
+MarutiXchange-Frontend/npm-debug.log*
+MarutiXchange-Frontend/yarn-debug.log*
+MarutiXchange-Frontend/yarn-error.log*
+
+### === IDE / OS files (common to both) === ###
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+MarutiXchange-Frontend/Frontend/.env

@@ -1,0 +1,38 @@
+package rules;
+
+import com.marutixchange.rules_engine_service.model.RuleContext;
+
+dialect "java"
+
+// ============================================================
+// ORDER RULES — MarutiXchange
+// Called by: order-service -> OrderServiceImpl.createOrder()
+// ============================================================
+
+/**
+ * RULE 1: Order amount must be valid
+ */
+rule "ORDER_INVALID_AMOUNT"
+salience 100
+agenda-group "order"
+when
+    $c : RuleContext(type == "order", price <= 0)
+then
+    $c.setApproved(false);
+    $c.setMessage("Order amount must be greater than zero");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 2: Valid order
+ */
+rule "ORDER_VALID"
+salience 10
+agenda-group "order"
+when
+    $c : RuleContext(type == "order", price > 0)
+then
+    $c.setApproved(true);
+    $c.setMessage("Order validated successfully");
+    $c.setRuleMatched(true);
+end

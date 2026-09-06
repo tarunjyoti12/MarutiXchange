@@ -1,0 +1,66 @@
+package rules;
+
+import com.marutixchange.rules_engine_service.model.RuleContext;
+
+dialect "java"
+
+// ============================================================
+// PAYMENT RULES — MarutiXchange
+// Called by: payment-service -> PaymentServiceImpl.initiatePayment()
+// ============================================================
+
+/**
+ * RULE 1: Reject suspiciously low payments
+ * Minimum token amount is Rs.1,000
+ */
+rule "PAYMENT_AMOUNT_TOO_LOW"
+salience 100
+when
+    $c : RuleContext(type == "PAYMENT", price < 1000, ruleMatched == false)
+then
+    $c.setApproved(false);
+    $c.setMessage("Payment amount too low — minimum is Rs.1,000");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 2: Reject payments above Rs.50 Lakh per transaction
+ * High-value transactions require escrow
+ */
+rule "PAYMENT_AMOUNT_TOO_HIGH"
+salience 90
+when
+    $c : RuleContext(type == "PAYMENT", price > 5000000, ruleMatched == false)
+then
+    $c.setApproved(false);
+    $c.setMessage("Payment exceeds Rs.50 Lakh limit — please use escrow for high-value transactions");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 3: High-value payment (> Rs.2 Lakh) requires escrow
+ * Protects both buyer and seller
+ */
+rule "PAYMENT_ESCROW_REQUIRED"
+salience 80
+when
+    $c : RuleContext(type == "PAYMENT", price > 200000, price <= 5000000, ruleMatched == false)
+then
+    $c.setApproved(true);
+    $c.setMessage("ESCROW_REQUIRED — payment will be held in escrow until RC transfer is complete");
+    $c.setRuleMatched(true);
+end
+
+/**
+ * RULE 4: Standard payment approved
+ * Amount between Rs.1,000 and Rs.2 Lakh
+ */
+rule "PAYMENT_APPROVED"
+salience 10
+when
+    $c : RuleContext(type == "PAYMENT", price >= 1000, price <= 200000, ruleMatched == false)
+then
+    $c.setApproved(true);
+    $c.setMessage("Payment validated successfully");
+    $c.setRuleMatched(true);
+end

@@ -1,0 +1,63 @@
+@startuml UserService_Architecture
+!define AWSPUML https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v14.0/dist
+!include AWSPUML/AWSCommon.puml
+
+title User Service - System Architecture & Data Flow
+
+package "Client Layer" {
+    actor Client
+}
+
+package "API Gateway" {
+    component APIGateway as "API Gateway / Load Balancer"
+}
+
+package "User Service" {
+    component UserController as "UserController\n- register()\n- login()\n- getUserById()\n- updateUser()\n- deleteUser()\n- sendOtp()\n- verifyOtp()\n- forgotPassword()\n- resetPassword()\n- getAllUsers()\n- uploadDocument()\n- getUserDocuments()"
+    
+    component UserService as "UserService (Interface)\nUserServiceImpl\n- register()\n- login()\n- getUserById()\n- updateUser()\n- deleteUser()\n- sendOtp()\n- verifyOtp()\n- forgotPassword()\n- resetPassword()\n- getAllUsers()"
+    
+    component DocumentService as "DocumentService\n- uploadDocument()\n- getUserDocuments()"
+    
+    component UserRepository as "UserRepository\n- findByEmail()\n- findById()\n- findByResetToken()\n- save()\n- delete()"
+    
+    component DocumentRepository as "DocumentRepository\n- save()\n- findByUserId()"
+    
+    component JwtUtil as "JwtUtil\n- generateToken()\n- validateToken()\n- extractClaims()"
+    
+    component PasswordEncoder as "PasswordEncoder\n- encode()\n- matches()"
+    
+    component EmailService as "EmailService\n- sendWelcomeEmail()\n- sendOtpEmail()\n- sendPasswordResetEmail()"
+    
+    component JwtAuthFilter as "JwtAuthFilter\n- doFilterInternal()"
+}
+
+package "External Services" {
+    database PostgreSQL as "PostgreSQL\nDatabase"
+    component SMTPServer as "SMTP Server\n(Email)"
+    component FileStorage as "File Storage\n(S3/Local)"
+}
+
+Client --> APIGateway
+APIGateway --> UserController
+
+UserController --> UserService
+UserController --> DocumentService
+
+UserService --> UserRepository
+UserService --> JwtUtil
+UserService --> PasswordEncoder
+UserService --> EmailService
+
+DocumentService --> DocumentRepository
+DocumentService --> UserRepository
+DocumentService --> FileStorage
+
+UserRepository --> PostgreSQL
+DocumentRepository --> PostgreSQL
+
+EmailService --> SMTPServer
+
+JwtAuthFilter --> JwtUtil
+
+@enduml

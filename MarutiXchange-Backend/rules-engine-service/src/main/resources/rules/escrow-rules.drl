@@ -1,0 +1,27 @@
+package rules;
+
+import com.marutixchange.rules_engine_service.model.RuleContext;
+
+dialect "java"
+
+agenda-group "payment"   // ✅ IMPORTANT
+
+rule "ESCROW_REQUIRED_HIGH_VALUE"
+when
+    $c : RuleContext(type == "PAYMENT", $p : price)
+    eval($p != null && $p > 200000)
+then
+    $c.setApproved(true);
+    $c.setMessage("ESCROW_REQUIRED");   //  use keyword
+    $c.setRuleMatched(true);
+end
+
+rule "ESCROW_NOT_REQUIRED_LOW_VALUE"
+when
+    $c : RuleContext(type == "PAYMENT", $p : price)
+    eval($p != null && $p <= 200000)
+then
+    $c.setApproved(true);
+    $c.setMessage("ESCROW_NOT_REQUIRED");
+    $c.setRuleMatched(true);
+end

@@ -1,0 +1,13 @@
+package rules
+
+import com.marutixchange.order_service.entity.Order
+
+global java.util.List errors
+
+rule "Invalid Order Amount"
+when
+    $o : Order()
+    eval($o.getAmount() <= 0)
+then
+    errors.add("Order amount must be greater than 0");
+end
