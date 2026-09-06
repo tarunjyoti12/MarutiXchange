@@ -134,6 +134,11 @@ npm run dev
 
 ---
 
+## 📄 Documentation
+
+- [Full Project Report (PDF)](./docs/FinalYear_Project_Report(12205023)TarunJyoti.pdf)
+- [Project Presentation (PPTX)](./docs/marutiXchange_presentation.pptx)
+- [Microservices Architecture Presentation (Google Drive)](PASTE-YOUR-GOOGLE-DRIVE-LINK-HERE)
 ## 🙏 Acknowledgment
 
 This project was developed as part of a B.Tech industrial training program (Electronics & Computer Engineering, Punjabi University, Patiala) at **Maruti Suzuki India Limited**, under the mentorship of Mr. Ramachandran Kumar.
